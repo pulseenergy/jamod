@@ -1,0 +1,162 @@
+<?xml version="1.0"?>
+
+<!-- ======================================================================= -->
+<!-- Java Modbus Library (jamod) Buildfile                                   -->
+<!-- ======================================================================= -->
+<project name="jamod-snap" default="compile" basedir=".">
+
+  <target name="init">
+    <tstamp>
+      <format property="src.timestamp" pattern="dd/MM/yyyy"/>
+    </tstamp>
+    <!-- Allow any user specific values to override the defaults -->
+    <property file="build.properties"/>
+    <property file="${user.home}/.build.properties"/>
+    <property file="build-snap.properties"/>
+    <property name="Name" value="Jamod-SNAP"/>
+    <property name="name" value="jamod-snap"/>
+    <property name="version" value="1.2"/>
+    <property name="copyright" value="2002-2004 jamod development team."/>
+    <loadfile property="license" srcFile="${basedir}${file.separator}LICENSE.txt"/>
+    <property name="packages" value="net.wimpi.modbus.*"/>
+
+    <!-- Base Filters -->
+    <filter token="date" value="${src.timestamp}"/>
+    <filter token="version" value="${version}"/>
+    <filter token="copyright" value="${copyright}"/>
+    <filter token="license" value="${license}"/>
+    <!-- Sources -->
+    <property name="src.dir" value="${basedir}${file.separator}src"/>
+    <property name="src.java" value="${src.dir}"/>
+
+    <!-- Build commons -->
+    <property name="build.dir" value="${basedir}${file.separator}build"/>
+    <property name="build.lib" value="${basedir}${file.separator}lib"/>
+    <property name="library.includes" value="net${file.separator}**"/>
+
+    <!-- SNAP Build targets properties -->
+    <property name="snap.classpath" value="${snap.firmware}/classes${path.separator}${snap.classes}"/>
+
+    <property name="snap.build.src" value="${build.dir}${file.separator}snap-src"/>
+    <property name="snap.classes" value="${build.dir}${file.separator}snap-classes"/>
+    <property name="snap.classes.verified" value="${build.dir}${file.separator}snap-classes-verified"/>
+    <property name="snap.library" value="${build.dir}${file.separator}${name}.jar"/>
+
+    <!--<property name="src.excludes" value="**/*Serial*.java,**/*ASCII*.java,**/*RTU*.java,**/Observable*.java,**/package.html"/>-->
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Basic build targets                                                 -->
+  <!-- =================================================================== -->
+
+  <target name="prepare-sources" depends="init" description="Prepares the sources for compilation.">
+     <mkdir dir="${build.dir}"/>
+
+    <!-- SNAP specific filters -->
+     <filter token="commentstart" value="${line.separator}/*${line.separator}"/>
+     <filter token="commentend" value="${line.separator}*/${line.separator}"/>
+
+     <mkdir dir="${snap.build.src}"/>
+     <copy todir="${snap.build.src}" filtering="true">
+       <fileset dir="${src.java}" excludes="${src.excludes}"/>
+     </copy>
+   </target>
+
+
+  <target name="compile" depends="init, prepare-sources" description="Compiles classes against the SNAP classlibrary.">
+    <!-- Echo compilation properties -->
+    <echo level="info" message="Compiler    = ${build.compiler}"/>
+    <echo level="info" message="Optimize    = ${compile.optimize}"/>
+    <echo level="info" message="Deprecation = ${compile.deprecation}"/>
+    <echo level="info" message="Debug       = ${compile.debug}"/>
+    <echo level="info" message="Firmware    = ${snap.firmware}"/>
+
+    <property name="build.sysclasspath" value="ignore"/>
+    <mkdir dir="${snap.classes}"/>
+    <javac srcdir="${snap.build.src}"
+           target="1.1"
+           destdir="${snap.classes}"
+           classpath=""
+           bootclasspath="${snap.classpath}"
+           debug="${compile.debug}"
+           optimize="${compile.optimize}"
+           deprecation="${compile.deprecation}"
+    />
+  </target>
+
+  <target name="preverify" depends="compile">
+    <mkdir dir="${snap.classes.verified}"/>
+    <exec dir="${build.dir}" executable="${preverify.bin}">
+      <arg line="-classpath ${snap.classpath} -nofinalize -d ${snap.classes.verified} ${snap.classes}"/>
+    </exec>
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Creates SNAP jar archive                                             -->
+  <!-- =================================================================== -->
+  <target name="jar" depends="init,compile,preverify" description="Creates a JAR from the preverified SNAP classes.">
+    <jar jarfile="${snap.library}"
+         basedir="${snap.classes.verified}"
+         includes="net${file.separator}**"
+    />
+  </target>
+
+  
+  <target name="clean-sources" depends="init" description="Cleans sources for SNAP build.">
+    <delete dir="${snap.build.src}"/>
+  </target>
+  
+  <target name="clean-all" depends="init" description="Cleans SNAP build.">
+    <delete dir="${snap.classes}"/>
+    <delete dir="${snap.classes.verified}"/>
+    <delete dir="${snap.build.src}"/>
+    <delete dir="${snap.library}"/>
+  </target>
+
+ <!--
+
+  <target name="init-tini">
+    <!- TINI Build targets properties ->
+    <property name="tini.classes" value="${build.dir}${file.separator}tiniclasses"/>
+    <property name="tini.classpath" value="${build.lib}tiniclasses.jar${path.separator}${tini.classes}"/>
+    <property name="tini.file" value="${build.dir}${file.separator}${name}.tini"/>
+    <property name="tini.firmware" value="${build.lib}tini.db"/>
+    <property name="tini.appclass" value="net.wimpi.modbus.cmd.TCPSlaveTest"/>
+  </target>
+
+
+
+  <!- =================================================================== ->
+  <!- Compiles the source code for TINI, against TINI API                 ->
+  <!- =================================================================== ->
+  <target name="tini-compile" depends="init">
+    <property name="build.sysclasspath" value="ignore"/>
+    <mkdir dir="${tini.classes}"/>
+    <javac srcdir="${src.dir}"
+      target="1.1"
+      fork="yes"
+      excludes="*test/**"
+      destdir="${tini.classes}"
+      classpath="${tini.classpath}"
+      optimize="on"
+      />
+  </target>
+
+  <!- =================================================================== ->
+  <!- Creates TINI installable file                                       ->
+  <!- =================================================================== ->
+  <target name="tini-file" depends="init,tini-compile">
+    <java
+      fork="yes"
+      classname="TINIConvertor"
+      taskname="TINIConversion"
+      failonerror="true">
+      <arg line="-f ${tini.classes} -o ${tini.file} -d ${tini.firmware} -m ${tini.appclass}"/>
+      <classpath>
+        <pathelement path="${build.lib}tini.jar"/>
+      </classpath>
+    </java>
+  </target>
+-->
+
+</project>

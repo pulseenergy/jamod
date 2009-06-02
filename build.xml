@@ -1,0 +1,317 @@
+<?xml version="1.0"?>
+
+<!-- ======================================================================= -->
+<!-- Java Modbus Library (jamod) Buildfile                                   -->
+<!-- ======================================================================= -->
+<project name="jamod" default="compile" basedir=".">
+ 
+   <!-- This property will be overwritten by the import, so
+        we need to make sure it does not happen! -->
+   <property name="version" value="1.2rc1"/>
+
+   <!-- New Forrest import this might overwrite properties! -->
+   <property environment="env"/>
+   <property name="forrest.home" value="${env.FORREST_HOME}"/>
+   <import file="${env.FORREST_HOME}/forrest.build.xml"/>
+  
+  <target name="init">
+    <tstamp>
+      <format property="src.timestamp" pattern="dd/MM/yyyy"/>
+    </tstamp>
+    <!-- Allow any user specific values to override the defaults -->
+    <property file="build.properties"/>
+    <property file="${user.home}/.build.properties"/>
+    <property name="Name" value="Jamod"/>
+    <property name="name" value="jamod"/>
+   
+    <property name="copyright" value="2002-2004 jamod development team."/>
+    <loadfile property="license" srcFile="${basedir}${file.separator}LICENSE.txt"/>
+    <property name="packages" value="net.wimpi.modbus.*"/>
+
+    <!-- Base Filters -->
+    <filter token="date" value="${src.timestamp}"/>
+    <filter token="version" value="${version}"/>
+    <filter token="copyright" value="${copyright}"/>
+    <filter token="license" value="${license}"/>
+
+    <!-- Serial Package check -->
+    <condition property="useGNUIO">
+      <istrue value="${build.serial.gnu}"/>
+    </condition>
+
+    <!-- Sources -->
+    <property name="src.dir" value="${basedir}${file.separator}src"/>
+    <property name="src.java" value="${src.dir}${file.separator}java"/>
+    <property name="src.docs" value="${basedir}${file.separator}docs"/>
+    <property name="src.resources" value=""/>
+
+    <!-- Build -->
+    <property name="build.dir" value="${basedir}${file.separator}build"/>
+    <property name="build.lib" value="${basedir}${file.separator}lib"/>
+
+    <property name="build.src" value="${build.dir}${file.separator}src"/>
+    <property name="build.src.excludes" value=""/>
+    <property name="build.resources" value=""/>
+
+    <property name="build.classes" value="${build.dir}${file.separator}classes"/>
+    <property name="build.jar" value="${build.dir}${file.separator}${name}.jar"/>
+    <property name="build.jar.includes" value="net${file.separator}**"/>
+    <property name="build.classpath"
+              value="${build.classes}${path.separator}
+                     ${build.lib}${file.separator}comm.jar${path.separator}
+                     ${build.lib}${file.separator}RXTXcomm.jar${path.separator}
+                     ${build.lib}${file.separator}encuentro.jar${path.separator}
+     "/>
+
+    <property name="build.docs" value="${build.dir}${file.separator}site"/>
+    <property name="build.javadocs" value="${build.docs}${file.separator}api"/>
+
+    <property name="build.srcdist" value="${build.dir}${file.separator}${name}-${version}-src"/>
+    <property name="build.dist" value="${build.dir}${file.separator}${name}-${version}"/>
+    
+    <property name="dist.basedir" value="${build.dir}"/>
+
+    <property name="dist.includes" value="${name}-${version}${file.separator}**"/>
+	<property name="dist.excludes" value="**/.DS_Store,**/.cvsignore"/>
+	<property name="srcdist.includes" value="${name}-${version}-src${file.separator}**"/>
+	<property name="srcdist.excludes" value="**/.DS_Store,**/.cvsignore"/>
+	
+  </target>
+
+
+  <!-- =================================================================== -->
+  <!-- Basic build targets                                                 -->
+  <!-- =================================================================== -->
+  <target name="prepare-sources" depends="init">
+    <mkdir dir="${build.dir}"/>
+    <mkdir dir="${build.src}"/>
+    
+    <!-- specific filters -->
+    <filter token="commentstart" value="${line.separator}"/>
+    <filter token="commentend" value=""/>
+
+    <copy todir="${build.src}" filtering="true">
+      <fileset dir="${src.dir}" excludes="${build.src.excludes}"/>
+    </copy>
+  </target>
+
+  <target name="makeusegnu" if="useGNUIO">
+    <replace dir="${build.src}" token="import javax.comm." value="import gnu.io."
+             includes="**/*.java"/>
+  </target>
+
+
+  <target name="compile" depends="init,prepare-sources,makeusegnu" description="Compiles the sources. (Default)">
+    <!-- Echo compilation properties -->
+    <echo level="info" message="Compiler    = ${build.compiler}"/>
+    <echo level="info" message="Optimize    = ${compile.optimize}"/>
+    <echo level="info" message="Deprecation = ${compile.deprecation}"/>
+    <echo level="info" message="Debug       = ${compile.debug}"/>
+
+    <mkdir dir="${build.dir}"/>
+    <mkdir dir="${build.classes}"/>
+    <javac srcdir="${build.src}"
+      destdir="${build.classes}"
+      classpath="${build.classpath}"
+      debug="${compile.debug}"
+      optimize="${compile.optimize}"
+      deprecation="${compile.deprecation}"
+    />
+    <!-- Copy resource files -->
+    <mkdir dir="${build.resources}"/>
+    <copy todir="${build.resources}">
+      <fileset dir="${src.resources}">
+        <exclude name="**/.DS_Store"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="jar" depends="init,compile" description="Builds the library.">
+    <mkdir dir="${build.dir}"/>
+    <jar jarfile="${build.jar}"
+      basedir="${build.classes}"
+      includes="${build.jar.includes}"
+      />
+  </target>
+  
+  <target name="snap" depends="" description="Builds the SNAP library">
+  <ant antfile="build-snap.xml" target="jar"/>
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Docs build targets                                                  -->
+  <!-- =================================================================== -->
+  <target name="prepare-docs" depends="init">
+    <mkdir dir="${build.javadocs}"/>
+  </target>
+
+  <target name="docs" depends="prepare-docs,site" description="Forrest: Generates static HTML documentation">
+     <echo level="info" message="Forrest Home=${forrest.home}"/>
+   </target>
+
+   <target name="validate-docs" depends="prepare-docs,validate" description="Forrest: Validates XML documentation files">
+     <echo level="info" message="Forrest Home=${forrest.home}"/>
+   </target>
+
+
+  <target name="javadocs" depends="prepare-sources,prepare-docs" description="Generates the javadoc API documentation.">
+    <mkdir dir="${build.javadocs}"/>
+    <javadoc packagenames="${packages}"
+      sourcepath="${build.src}"
+      classpath="${build.classpath}"
+      destdir="${build.javadocs}"
+      author="true"
+      version="true"
+      windowtitle="${Name} API"
+      doctitle="${Name} API Documentation"
+      header="&lt;a href=&apos;http://jamod.sourceforge.net&apos; target=&apos;_top&apos;&gt;jamod at SF&lt;/a&gt;"
+      bottom="Copyright &#169; ${copyright}"
+      additionalparam="${javadocs.additionalparam}"
+      />
+  </target>
+
+  <!-- =================================================================== -->
+  <!-- Distribution targets                                                -->
+  <!-- =================================================================== -->
+  <target name="prepare-srcdist" depends="init, prepare-sources">
+    <property name="srcdist.src" value="${build.srcdist}${file.separator}src"/>
+    <property name="srcdist.lib" value="${build.srcdist}${file.separator}lib"/>
+    <property name="srcdist.docs" value="${build.srcdist}${file.separator}docs"/>
+
+    <mkdir dir="${build.srcdist}"/>
+    <mkdir dir="${srcdist.src}"/>
+    <mkdir dir="${srcdist.lib}"/>
+    <mkdir dir="${srcdist.docs}"/>
+
+    <!-- Copy sources -->
+    <copy todir="${srcdist.src}" includeEmptyDirs="false">
+      <fileset dir="${build.src}"/>
+    </copy>
+
+    <!-- Copy documentation source -->
+    <copy todir="${srcdist.docs}" filtering="true" includeEmptyDirs="false">
+      <fileset dir="${src.docs}"/>
+    </copy>
+
+    <!-- Copy libraries -->
+    <copy todir="${srcdist.lib}">
+      <fileset dir="${build.lib}" excludes=""/>
+    </copy>
+
+    <!-- Copy Readme, License and Status -->
+    <copy file="${basedir}${file.separator}README.txt" todir="${build.srcdist}"/>
+    <copy file="${basedir}${file.separator}LICENSE.txt" todir="${build.srcdist}"/>
+    <copy file="${basedir}${file.separator}status.xml" todir="${build.srcdist}"/>
+    
+    <!-- Copy build scripts -->
+    <copy file="${basedir}${file.separator}build.xml" todir="${build.srcdist}"/>
+    <copy file="${basedir}${file.separator}build.properties" todir="${build.srcdist}"/>
+    <copy file="${basedir}${file.separator}build-snap.xml" todir="${build.srcdist}"/>
+    <copy file="${basedir}${file.separator}build-snap.properties" todir="${build.srcdist}"/>
+    <copy file="${basedir}${file.separator}forrest.properties" todir="${build.srcdist}"/>
+    <copy file="${basedir}${file.separator}forrest-targets.ent" todir="${build.srcdist}"/>  
+    
+  </target>
+  
+  
+  <target name="prepare-dist" depends="init, jar, javadocs,docs">
+    <property name="dist.docs" value="${build.dist}${file.separator}docs"/>
+
+    <mkdir dir="${build.dist}"/>
+    <mkdir dir="${dist.docs}"/>
+
+    <!-- Copy built documentation -->
+    <copy todir="${dist.docs}" filtering="true" includeEmptyDirs="false">
+      <fileset dir="${build.docs}"/>
+    </copy>
+
+    <!-- Copy Readme and License -->
+    <copy file="${basedir}${file.separator}README.txt" todir="${build.dist}"/>
+    <copy file="${basedir}${file.separator}LICENSE.txt" todir="${build.dist}"/>
+    
+    <!-- Copy build -->
+    <copy file="${build.jar}" todir="${build.dist}"/>
+ </target>
+
+ <target name="srcdist" depends="prepare-srcdist" description="Builds a tar-gzip source distribution file.">
+   <tar tarfile="${dist.basedir}${file.separator}${name}-${version}-src.tar"
+      basedir="${dist.basedir}"
+      includes="${srcdist.includes}"
+      excludes="${srcdist.excludes}"
+    />
+    <gzip zipfile="${dist.basedir}${file.separator}${name}-${version}-src.tar.gz" src="${dist.basedir}${file.separator}${Name}-${version}-src.tar"/>
+    <delete file="${dist.basedir}${file.separator}${name}-${version}-src.tar"/>
+ </target>
+
+ <target name="dist" depends="prepare-dist" description="Builds a tar-gzip binary distribution file.">
+   <tar tarfile="${dist.basedir}${file.separator}${name}-${version}.tar"
+      basedir="${dist.basedir}"
+      includes="${dist.includes}"
+      excludes="${dist.excludes}"
+    />
+   <gzip zipfile="${dist.basedir}${file.separator}${name}-${version}.tar.gz" src="${dist.basedir}${file.separator}${Name}-${version}.tar"/>
+   <delete file="${dist.basedir}${file.separator}${name}-${version}.tar"/>
+ </target>
+
+ <target name="srczipdist" depends="prepare-srcdist" description="Builds a zipped source distribution file.">
+   <zip zipfile="${dist.basedir}${file.separator}${name}-${version}-src.zip"
+      basedir="${dist.basedir}"
+      includes="${srcdist.includes}"
+      excludes="${srcdist.excludes}"
+    />
+ </target>
+ 
+ <target name="zipdist" depends="prepare-dist" description="Builds a zipped source distribution file.">
+   <zip zipfile="${dist.basedir}${file.separator}${name}-${version}.zip"
+      basedir="${dist.basedir}"
+      includes="${dist.includes}"
+      excludes="${dist.excludes}"
+    />
+ </target>
+
+ <target name="docsdist" depends="prepare-dist" description="Builds a zipped documentation distribution file.">
+   <zip zipfile="${dist.basedir}${file.separator}${name}-${version}_docs.zip"
+     basedir="${dist.basedir}"
+     includes="${name}-${version}${file.separator}docs/**"
+    />
+ </target>
+
+  <!-- =================================================================== -->
+  <!-- Release target                                                      -->
+  <!-- =================================================================== -->
+  <target name="release"
+    depends="clean-build,srcdist, dist, srczipdist, zipdist,docsdist" description="Builds a release.">
+    <echo level="info" message="Created release ${version}"/>
+  </target>
+
+
+  <!-- =================================================================== -->
+  <!-- Cleanup Targets                                                     -->
+  <!-- =================================================================== -->
+  <target name="clean-classes" depends="init" description="Cleans up the build classes.">
+    <delete dir="${build.classes}"/>
+  </target>
+
+  <target name="clean-jars" depends="init" description="Cleans up the build libraries.">
+    <delete file="${build.dir}${file.separator}${name}.jar"/>
+    <delete file="${build.dir}${file.separator}${name}beans.jar"/>
+  </target>
+
+  <target name="clean-build" depends="init" description="Cleans up the build directory.">
+    <delete dir="${build.dir}"/>
+  </target>
+
+  <target name="clean-dist" depends="init" description="Cleans up the dist builds.">
+    <delete dir="${build.dist}"/>
+  </target>
+
+  <target name="clean-docs" depends="init" description="Cleans up generated javadocs.">
+    <delete dir="${build.javadocs}"/>
+  </target>
+
+  <target name="clean-all" depends="clean-build,clean-dist, clean-docs" description="Cleans up to distribution state.">
+    <echo level="info" message="Cleaned all."/>
+  </target>
+
+</project>
+
