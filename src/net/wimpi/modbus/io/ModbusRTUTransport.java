@@ -229,7 +229,9 @@ public class ModbusRTUTransport
           setReceiveThreshold(bc+2);
           inpBytes = m_InputStream.read(inpBuf, 0, bc+2);
           out.write(inpBuf, 0, inpBytes);
-          m_CommPort.disableReceiveThreshold();
+          // ADM - XXX - FIXME - removed this line for USB-to-serial conversion on Mac OS X;
+          // seemed to do the trick.  Not sure if this would be the case on linux or with non-USB devices
+          // m_CommPort.disableReceiveThreshold();
           if (inpBytes != bc+2) {
             System.out.println("Error: looking for " + (bc+2) +
                                " bytes, received " + inpBytes);
